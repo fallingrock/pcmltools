@@ -1,0 +1,47 @@
+<pcml version="1.0">
+
+<!--  PCML for a call to the QBNRPGII api -->
+	
+	<!--  Receiver variable with internal, multi element, structure for each entity -->
+	<struct name="receiver">
+		<data name="BytesReturn" type="int" length="4" />
+		<data name="BytesAvail" type="int" length="4" />
+		<data name="ObjName" type="char" length="10" />
+		<data name="ObjLib" type="char" length="10" />
+		<data name="ObjType" type="char" length="10" />
+		<data name="filer1" type="char" length="2" />
+		<data name="OffsetFirstEntry" type="int" length="4" />
+		<data name="NumberOfEntries" type="int" length="4" init="1"/>
+		<data type="byte" length="0" offset="OffsetFirstEntry"
+			offsetfrom="receiver" />
+		<struct name="Entry" count="NumberOfEntries">
+			<data name="OffsetNextEntry" type="int" length="4" />
+			<data name="ModuleName" type="char" length="10" />
+			<data name="ModuleLib" type="char" length="10" />
+			<data name="InterfaceInfoCCSID" type="int" length="4" />
+			<data name="InterfaceInfoType" type="int" length="4" />
+			<data name="InterfaceInfoOffset" type="int" length="4" />
+			<data name="InterfaceInfoReturn" type="int" length="4" />
+			<data name="InterfaceInfoAvail" type="int" length="4" />
+			<data name="InterfaceInfo" type="char" length="InterfaceInfoReturn"
+				offset="InterfaceInfoOffset" offsetfrom="receiver" />
+			<data type="byte" length="0" offset="OffsetNextEntry"
+				offsetfrom="receiver" />
+		</struct>
+	</struct>
+
+	<program name="qbnrpii" path="/QSYS.lib/QBNRPII.pgm">
+		<data name="receiver" type="struct" struct="receiver" usage="output"
+			outputsize="receiverLength" />
+		<data name="receiverLength" type="int" length="4" usage="input"
+			init="4096" />
+		<data name="formatName" type="char" length="8" usage="input"
+			init="RPII0100" />
+		<data name="objName" type="char" length="10" />
+		<data name="objLib" type="char" length="10" init="*LIBL" />
+		<data name="objType" type="char" length="10" usage="input" init="*SRVPGM" />
+		<data name="QBndModName" type="char" length="20" usage="input"
+			init="*ALLBNDMOD" />
+		<data name="errorCode" type="int" length="4" usage="input" init="0" />
+	</program>
+</pcml>
