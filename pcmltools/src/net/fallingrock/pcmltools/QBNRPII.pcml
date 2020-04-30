@@ -1,5 +1,22 @@
 <pcml version="1.0">
 
+<!-- 
+    This file is part of PCMLTOOLS.
+
+    PCMLTOOLS is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    PCMLTOOLS is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with PCMLTOOLS.  If not, see <https://www.gnu.org/licenses/>.
+ -->
+ 
 <!--  PCML for a call to the QBNRPGII api -->
 	
 	<!--  Receiver variable with internal, multi element, structure for each entity -->
@@ -30,6 +47,11 @@
 		</struct>
 	</struct>
 
+	<struct name="qobj">
+		<data name="name" type="char" length="10"/>
+		<data name="lib" type="char" length="10"/>
+	</struct>
+	
 	<program name="qbnrpii" path="/QSYS.lib/QBNRPII.pgm">
 		<data name="receiver" type="struct" struct="receiver" usage="output"
 			outputsize="receiverLength" />
@@ -37,9 +59,8 @@
 			init="4096" />
 		<data name="formatName" type="char" length="8" usage="input"
 			init="RPII0100" />
-		<data name="objName" type="char" length="10" />
-		<data name="objLib" type="char" length="10" init="*LIBL" />
-		<data name="objType" type="char" length="10" usage="input" init="*SRVPGM" />
+		<data name="obj" type="struct" struct="qobj" usage="input" />
+		<data name="objType" type="char" length="10" usage="input"  />
 		<data name="QBndModName" type="char" length="20" usage="input"
 			init="*ALLBNDMOD" />
 		<data name="errorCode" type="int" length="4" usage="input" init="0" />

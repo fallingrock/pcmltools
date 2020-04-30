@@ -1,9 +1,26 @@
+/*
+    This file is part of PCMLTOOLS.
+
+    PCMLTOOLS is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    PCMLTOOLS is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with PCMLTOOLS.  If not, see <https://www.gnu.org/licenses/>.
+
+ */
+
 package net.fallingrock.pcmltools;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -40,117 +57,168 @@ import com.ibm.as400.data.ProgramCallDocument;
  */
 public class PcmlTools {
 
+	private static final String QBNRPII = "qbnrpii";
+	
 	private final AS400 host;
+	private String pcmlDoc = null;
+	private final QSYSObjectPathName path;
+	private Document doc = null;
 	
-	public PcmlTools(AS400 host) {
+	public static final String PGM = "PGM";
+	public static final String SRVPGM = "SRVPGM";
+	
+	public PcmlTools(AS400 host, QSYSObjectPathName path) {
 		this.host = host;
+		this.path = path;
+
+	}
+
+	public PcmlTools(AS400 host, String lib, String obj, String type) {
+		this(host, new QSYSObjectPathName(lib, obj, type));
+	}
+
+	public PcmlTools(AS400 host, String path) {
+		this(host, new QSYSObjectPathName(path));
 	}
 
 	/**
-	 * Retrieve ProgramcallDocument object from a named program or service program
-	 * that has been compiled with PGMINFO(*PCML:[*MODULE | *ALL]).
-	 * 
-	 * @parm doc PCML document name (can be null)
-	 * @param lib library
-	 * @param obj program or service program name
-	 * @param type PGM or SRVPGM
-	 * @return PCML document
+	 * Loads PCML from object and returns it as a XML string
+
+	 * @return string containing XML
 	 * @throws PcmlToolsException
 	 */
-	public ProgramCallDocument loadFromObject(String doc, String lib, String obj, String type) throws PcmlToolsException {
-		return loadFromObject(doc, QSYSObjectPathName.toPath(lib, obj, type));
+	public String getXML() throws PcmlToolsException {
+		Document doc = getDocument();
+
+		// convert merged PCML into ProgramCallDocument object
+
+		// First, we need to get the XML source from the information 
+		// retrieved from each module
+		try {
+
+			return printDocument(doc);
+
+		} catch (IOException e) {
+			throw new PcmlToolsException(e);
+		} catch (TransformerException e) {
+			throw new PcmlToolsException(e);
+		}
 	}
 
 	/**
-	 * Retrieve ProgramcallDocument object from a named program or service program
-	 * that has been compiled with PGMINFO(*PCML:[*MODULE | *ALL]).
+	 * Loads PCML from object and returns it as a w3c document object
 	 * 
-	 * @param lib library
-	 * @param obj program or service program name
-	 * @param type PGM or SRVPGM
-	 * @return PCML document
+	 * @return w3c document object
 	 * @throws PcmlToolsException
 	 */
-	public ProgramCallDocument loadFromObject(String lib, String obj, String type) throws PcmlToolsException {
-		return loadFromObject(null, lib, obj, type);
-	}
+	public Document getDocument() throws PcmlToolsException {
 
-	/**
-	 * Retrieve ProgramcallDocument object from a named program or service program
-	 * that has been compiled with PGMINFO(*PCML:[*MODULE | *ALL]).
-	 * 
-	 * @param path QSYSObjecPathName object to program or service program.
-	 * @return PCML document
-	 * @throws PcmlToolsException
-	 */
-	public ProgramCallDocument loadFromObject(String doc, QSYSObjectPathName path) throws PcmlToolsException {
-		return loadFromObject(doc, path.toString());
-	}
-	
-	/**
-	 * Retrieve ProgramcallDocument object from a named program or service program
-	 * that has been compiled with PGMINFO(*PCML:[*MODULE | *ALL]).
-	 * 
-	 * @parm doc PCML document name (can be null)
-	 * @param path QSYSObjecPathName object to program or service program.
-	 * @return PCML document
-	 * @throws PcmlToolsException
-	 */
-	public ProgramCallDocument loadFromObject(QSYSObjectPathName path) throws PcmlToolsException {
-		return loadFromObject(null, path);
-	}
-	
-	/**
-	 * Retrieve ProgramcallDocument object from a named program or service program
-	 * that has been compiled with PGMINFO(*PCML:[*MODULE | *ALL]).
-	 * 
-	 * @parm doc PCML document name (can be null)
-	 * @param path QSYS path to program or service program.
-	 * @return PCML document
-	 * @throws PcmlToolsException
-	 */
-	public ProgramCallDocument loadFromObject(String path) throws PcmlToolsException {
-		return loadFromObject(null, path);
-	}
-	
-	/**
-	 * Retrieve ProgramcallDocument object from a named program or service program
-	 * that has been compiled with PGMINFO(*PCML:[*MODULE | *ALL]).
-	 * 
-	 * @parm doc PCML document name (can be null)
-	 * @param path QSYS path to program or service program.
-	 * @return PCML document
-	 * @throws PcmlToolsException
-	 */
-	public ProgramCallDocument loadFromObject(String doc, String path) throws PcmlToolsException {
-
-		ProgramCallDocument result = null;
-		
-		QSYSObjectPathName qsysPath = new QSYSObjectPathName(path);
-		
-		String objname = qsysPath.getObjectName();
-		String objtype = qsysPath.getObjectType();
-		String libname = qsysPath.getLibraryName();
-		
-		if (!objtype.equalsIgnoreCase("PGM") && !objtype.equalsIgnoreCase("SRVPGM")) {
-			throw new PcmlToolsException("Invalid object type " + objtype);
+		if (doc == null) {
+			doc = loadDocFromObject();
 		}
 		
+		return doc;
+	}
+
+	/**
+	 * Clears any previously performed work
+	 */
+	public void reset() {
+		doc = null;
+	}
+	
+	/**
+	 * Loads PCML from object and returns Program Call document object
+	 *  
+	 * @return PCML Document
+	 * @throws PcmlToolsException
+	 */
+	public ProgramCallDocument getPcml() throws PcmlToolsException {
+
 		try {
-			
+			String xml = getXML();
+
+			// now, construct a new ProgramCallDocument object from the XML source
+			ByteArrayInputStream bais = new ByteArrayInputStream(xml.getBytes());
+
+			// If a PCML document name wasn't specified, use the program name
+			if (pcmlDoc == null) {
+				pcmlDoc = path.getObjectName();
+			}
+
+			ProgramCallDocument result = new ProgramCallDocument(host, pcmlDoc, bais, null, null, 
+					ProgramCallDocument.SOURCE_PCML);
+
+			return result;
+
+		} catch (PcmlException e) {
+			throw new PcmlToolsException(e);
+		}
+	}
+
+	/**
+	 * @return the doc
+	 */
+	public String getPcmlDoc() {
+		return pcmlDoc;
+	}
+
+	/**
+	 * @param doc the doc to set
+	 */
+	public void setPcmlDoc(String pcmlDoc) {
+		this.pcmlDoc = pcmlDoc;
+	}
+
+	/**
+	 * @return the host
+	 */
+	public AS400 getHost() {
+		return host;
+	}
+
+	/**
+	 * @return the path
+	 */
+	public QSYSObjectPathName getPath() {
+		return path;
+	}
+
+	/**
+	 * Retrieve ProgramcallDocument object from a named program or service program
+	 * that has been compiled with PGMINFO(*PCML:[*MODULE | *ALL]).
+	 * 
+	 * @parm doc PCML document name (can be null)
+	 * @param path QSYS path to program or service program.
+	 * @return PCML document
+	 * @throws PcmlToolsException
+	 */
+	private Document loadDocFromObject() throws PcmlToolsException {
+
+		String objname = path.getObjectName();
+		String objtype = path.getObjectType();
+		String libname = path.getLibraryName();
+
+		if (!objtype.equalsIgnoreCase(PGM) && !objtype.equalsIgnoreCase(SRVPGM)) {
+			throw new PcmlToolsException("Invalid object type " + objtype);
+		}
+
+		try {
+
 			// Make sure the object exists
-			ObjectDescription od = new ObjectDescription(host, qsysPath);
+			ObjectDescription od = new ObjectDescription(host, path);
 			od.refresh();
-			
+
 			// Setup our own PCML to call the QBNRPII api
-			ProgramCallDocument pcml = new ProgramCallDocument(host, "com.fallingrock.getpcml.QBNRPII");
+			ProgramCallDocument pcml = new ProgramCallDocument(host, 
+					"net.fallingrock.pcmltools.QBNRPII");
 
-			pcml.setStringValue("qbnrpii.objLib", libname);
-			pcml.setStringValue("qbnrpii.objName", objname);
-			pcml.setStringValue("qbnrpii.objType", "*" + objtype);
-			pcml.callProgram("qbnrpii");
+			pcml.setStringValue(QBNRPII + ".obj.lib", libname);
+			pcml.setStringValue(QBNRPII + ".obj.name", objname);
+			pcml.setStringValue(QBNRPII + ".objType", "*" + objtype);
+			pcml.callProgram(QBNRPII);
 
-			int entries = pcml.getIntValue("qbnrpii.receiver.NumberOfEntries");
+			int entries = pcml.getIntValue(QBNRPII + ".receiver.NumberOfEntries");
 
 			int[] indices = new int[2]; 
 
@@ -164,8 +232,15 @@ public class PcmlTools {
 			// cycle through all the modules in the object, retrieving PCML for each and
 			// merging them together with the first set found
 			for (indices[0] = 0; indices[0] < entries; indices[0]++) {
-				String pcmlSrc = (String)pcml.getValue("qbnrpii.receiver.Entry.InterfaceInfo", indices);
+				String pcmlSrc = (String)pcml.getValue(QBNRPII + 
+						".receiver.Entry.InterfaceInfo", indices);
 
+				// embedded PCML found? No, throw an exception
+				if (pcmlSrc == null) {
+					throw new PcmlToolsException("Object " + path.toQualifiedObjectName() + 
+							" does not have program interface information. Recompile with PGMINFO(*PCML:*MODULE).");
+				}
+				
 				Document pcmlDoc = builder.parse(new ByteArrayInputStream(pcmlSrc.getBytes()));
 
 				if (merged == null) {
@@ -192,28 +267,9 @@ public class PcmlTools {
 
 			}
 			
-			// convert merged PCML into ProgramCallDocument object
-			
-			// First, we need to get the XML source from the information 
-			// retrieved from each module
-			ByteArrayOutputStream baos = new ByteArrayOutputStream();
-			
-			printDocument(merged, baos);
-			
-			// now, construct a new ProgramCallDocument object from the XML source
-			ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
-			
-			// If a PCML document name wasn't specified, use the program name
-			if (doc == null) {
-				doc = objname;
-			}
-			
-			result = new ProgramCallDocument(host, doc, bais, null, null, 
-					ProgramCallDocument.SOURCE_PCML);
+			return merged;
 
 		} catch (IOException e) {
-			throw new PcmlToolsException(e);
-		} catch (TransformerException e) {
 			throw new PcmlToolsException(e);
 		} catch (ParserConfigurationException e) {
 			throw new PcmlToolsException(e);
@@ -233,10 +289,9 @@ public class PcmlTools {
 			throw new PcmlToolsException(e);
 		} 
 
-		return result;
 	}
 
-	private void printDocument(Document doc, OutputStream out) throws IOException, TransformerException {
+	private String printDocument(Document doc) throws IOException, TransformerException {
 		TransformerFactory tf = TransformerFactory.newInstance();
 		Transformer transformer = tf.newTransformer();
 		transformer.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
@@ -245,8 +300,14 @@ public class PcmlTools {
 		transformer.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
 		transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "4");
 
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		
 		transformer.transform(new DOMSource(doc), 
-				new StreamResult(new OutputStreamWriter(out, "UTF-8")));
+				new StreamResult(new OutputStreamWriter(baos, "UTF-8")));
+		
+		String xml = baos.toString();
+		
+		return xml;
 	}	
 
 }
